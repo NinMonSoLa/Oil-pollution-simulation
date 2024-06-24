@@ -1,0 +1,126 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 初始化湖泊和清汙船的函數
+def initialize_lake(lake_size, pollutant_amount, release_point, obstacles):
+    # 創建一個lake_size x lake_size大小的湖泊矩陣，初始值為0
+    lake = np.zeros((lake_size, lake_size))
+    # 在指定的釋放點釋放污染物
+    lake[release_point] = pollutant_amount
+
+    # 添加清汙船
+    for obstacle in obstacles:
+        x, y, radius = obstacle
+        # 確保清汙船在湖泊範圍內
+        min_x = max(0, x - radius)
+        max_x = min(lake_size, x + radius + 1)
+        min_y = max(0, y - radius)
+        max_y = min(lake_size, y + radius + 1)
+
+        # 在湖泊矩陣中標記清汙船區域
+        for i in range(min_x, max_x):
+            for j in range(min_y, max_y):
+                if (i - x)**2 + (j - y)**2 <= radius**2:
+                    lake[i, j] = -1  # 用-1來標記障礙物
+    return lake
+
+# 更新湖泊網格以模擬擴散的函數
+def diffuse(lake, D, dt, dx):
+    # 創建湖泊的副本
+    new_lake = lake.copy()
+    # 遍歷湖泊矩陣，計算擴散
+    for i in range(1, lake_size-1):
+        for j in range(1, lake_size-1):
+            if lake[i, j] != -1:  # 跳過障礙物單元格
+                new_lake[i, j] = lake[i, j] + D * dt / dx**2 * (
+                    lake[i+1, j] + lake[i-1, j] + lake[i, j+1] + lake[i, j-1] - 4 * lake[i, j])
+    return new_lake
+
+# 繪製湖泊及障礙物的函數
+def plot_lake(lake, lake_size, time_step):
+    plt.figure(figsize=(8, 6))
+    plt.imshow(lake, extent=[0, lake_size, 0, lake_size], origin='lower', cmap='viridis', alpha=0.8)
+    plt.colorbar(label='污染物濃度', fraction=0.046, pad=0.04)
+    plt.title(f'湖泊中的污染物擴散 (時間步: {time_step})')
+    plt.xlabel('x')
+    plt.ylabel('y')
+
+    # 用黑色標記障礙物
+    obstacles = np.where(lake == -1)
+    plt.scatter(obstacles[1], obstacles[0], color='black', marker='o', s=100)
+
+    plt.show()
+
+# 模擬參數的使用者輸入
+lake_size = 100
+total_time_steps = 2000
+D = 0.1  # 擴散係數
+
+# 輸入污染源和障礙物信息
+while True:
+    try:
+        x_p = int(input("輸入污染源的x坐標 (0-100): "))
+        y_p = int(input("輸入污染源的y坐標 (0-100): "))
+        if 0 <= x_p <= 100 and 0 <= y_p <= 100:
+            break
+        else:
+            print("坐標必須在範圍內 (0-100).")
+    except ValueError:
+        print("請輸入有效的數字.")
+
+pollutant_amount = 100
+release_point = (x_p, y_p)
+
+obstacles = []
+while True:
+    add_obstacle = input("是否添加清汙船? (yes/no): ").lower()
+    if add_obstacle == 'no':
+        break
+    elif add_obstacle == 'yes':
+        try:
+            x_o = int(input("輸入清汙船中心的x坐標 (0-100): "))
+            y_o = int(input("輸入清汙船中心的y坐標 (0-100): "))
+            radius = int(input("輸入清汙船的半徑: "))
+            if 0 <= x_o <= 100 and 0 <= y_o <= 100 and radius > 0:
+                obstacles.append((x_o, y_o, radius))
+            else:
+                print("無效的坐標或半徑.")
+        except ValueError:
+            print("請輸入有效的數字.")
+    else:
+        print("無效的輸入. 請輸入 'yes' 或 'no'.")
+
+# 初始化湖泊並添加污染物和清汙船
+lake = initialize_lake(lake_size, pollutant_amount, release_point, obstacles)
+
+# 模擬擴散過程
+dx = 1
+dt = 0.2
+for t in range(total_time_steps):
+    lake = diffuse(lake, D, dt, dx)
+
+    # 確保污染物不會通過清汙船
+    for obstacle in obstacles:
+        x, y, radius = obstacle
+        min_x = max(0, x - radius)
+        max_x = min(lake_size, x + radius + 1)
+        min_y = max(0, y - radius)
+        max_y = min(lake_size, y + radius + 1)
+        for i in range(min_x, max_x):
+            for j in range(min_y, max_y):
+                if (i - x)**2 + (j - y)**2 <= radius**2:
+                    lake[i, j] = -1  # 在擴散後重新標記障礙物區域
+
+# 讓使用者輸入想要查看的時間步長
+while True:
+    try:
+        time_step = int(input(f"請輸入要查看的時間步長 (0-{total_time_steps-1}): "))
+        if 0 <= time_step <= total_time_steps - 1:
+            break
+        else:
+            print(f"請輸入一個在 0 到 {total_time_steps-1} 範圍內的數字.")
+    except ValueError:
+        print("請輸入有效的數字.")
+
+# 繪製湖泊污染物濃度和障礙物
+plot_lake(lake, lake_size, time_step)
